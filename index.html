@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FuelIQ — AI Fuel Efficiency Predictor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0a0c0f; --panel: #111318; --border: #1e2330;
+      --accent: #00e5a0; --accent2: #0077ff; --warn: #ff6b35;
+      --text: #e8eaf0; --muted: #5a6080; --card: #13161f;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; min-height: 100vh; overflow-x: hidden; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
+    .glow-orb { position: fixed; width: 500px; height: 500px; border-radius: 50%; background: radial-gradient(circle, rgba(0,229,160,0.08) 0%, transparent 70%); top: -100px; right: -100px; pointer-events: none; z-index: 0; animation: orbFloat 8s ease-in-out infinite; }
+    .glow-orb2 { position: fixed; width: 400px; height: 400px; border-radius: 50%; background: radial-gradient(circle, rgba(0,119,255,0.06) 0%, transparent 70%); bottom: -80px; left: -80px; pointer-events: none; z-index: 0; }
+    @keyframes orbFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(30px)} }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+    header { padding: 32px 0 20px; border-bottom: 1px solid var(--border); }
+    .header-inner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 10px; display: grid; place-items: center; font-size: 20px; }
+    .logo-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.5px; }
+    .logo-text span { color: var(--accent); }
+    .api-status { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transition: background 0.3s; }
+    .status-dot.online  { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .status-dot.offline { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+
+    .hero { padding: 48px 0 32px; text-align: center; }
+    .hero h1 { font-family: 'Syne', sans-serif; font-size: clamp(28px, 5vw, 56px); font-weight: 800; line-height: 1.1; letter-spacing: -2px; margin-bottom: 16px; }
+    .hero h1 .highlight { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero p { color: var(--muted); font-size: 14px; max-width: 520px; margin: 0 auto; line-height: 1.7; }
+
+    .api-banner { display: none; background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.3); border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; font-size: 12px; color: var(--warn); line-height: 1.8; }
+    .api-banner.show { display: block; }
+    .api-banner strong { display: block; margin-bottom: 4px; font-size: 13px; }
+    .api-banner code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; color: #fff; }
+
+    .main-grid { display: grid; grid-template-columns: 1fr 380px; gap: 20px; padding-bottom: 60px; }
+    @media (max-width: 800px) { .main-grid { grid-template-columns: 1fr; } }
+
+    .form-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 28px; }
+    .panel-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 24px; display: flex; align-items: center; gap: 8px; }
+    .panel-title::before { content: ''; display: block; width: 3px; height: 14px; background: var(--accent); border-radius: 2px; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+
+    input[type="number"], select { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 14px; transition: border-color 0.2s, box-shadow 0.2s; appearance: none; width: 100%; }
+    input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,229,160,0.1); }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a6080' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; cursor: pointer; }
+    select option { background: #1a1d26; }
+    input[type="range"] { -webkit-appearance: none; width: 100%; height: 4px; background: var(--border); border-radius: 2px; border: none; padding: 0; cursor: pointer; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px rgba(0,229,160,0.4); cursor: pointer; transition: transform 0.15s; }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+    .predict-btn { margin-top: 24px; width: 100%; padding: 16px; background: linear-gradient(135deg, var(--accent), #00c882); border: none; border-radius: 10px; color: #000; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 1px; cursor: pointer; transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s; position: relative; overflow: hidden; }
+    .predict-btn:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,229,160,0.3); }
+    .predict-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .error-msg { background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.3); border-radius: 10px; padding: 14px; font-size: 12px; color: var(--warn); margin-top: 16px; display: none; line-height: 1.6; }
+    .error-msg.show { display: block; }
+
+    .model-strip { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--muted); margin-top: 16px; }
+    .model-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); flex-shrink: 0; }
+
+    .result-panel { display: flex; flex-direction: column; gap: 16px; }
+    .result-card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 24px; transition: border-color 0.3s; }
+    .result-card.active { border-color: rgba(0,229,160,0.4); }
+
+    .mpg-display { text-align: center; padding: 12px 0; }
+    .mpg-value { font-family: 'Syne', sans-serif; font-size: 72px; font-weight: 800; line-height: 1; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .mpg-unit { font-size: 16px; color: var(--muted); margin-top: 4px; letter-spacing: 2px; }
+    .mpg-label { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); margin-bottom: 8px; }
+
+    .efficiency-bar-wrap { margin-top: 20px; }
+    .bar-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+    .efficiency-bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .efficiency-fill { height: 100%; width: 0%; border-radius: 4px; background: linear-gradient(90deg, var(--warn), #ffcc00, var(--accent)); transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+    .rating-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 1px; margin-top: 12px; }
+    .rating-badge.excellent { background: rgba(0,229,160,0.1); color: var(--accent); border: 1px solid rgba(0,229,160,0.3); }
+    .rating-badge.good      { background: rgba(0,180,255,0.1); color: #00b4ff; border: 1px solid rgba(0,180,255,0.3); }
+    .rating-badge.average   { background: rgba(255,204,0,0.1); color: #ffcc00; border: 1px solid rgba(255,204,0,0.3); }
+    .rating-badge.poor      { background: rgba(255,107,53,0.1); color: var(--warn); border: 1px solid rgba(255,107,53,0.3); }
+
+    .metrics-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .metric-chip { flex: 1; min-width: 70px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; text-align: center; }
+    .metric-chip-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+    .metric-chip-val   { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--accent); margin-top: 2px; }
+
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+    .stat-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-bottom: 4px; }
+    .stat-val { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); }
+    .stat-val small { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-weight: 300; }
+
+    .co2-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-top: 1px solid var(--border); }
+    .co2-row:first-child { border-top: none; padding-top: 0; }
+    .co2-label { font-size: 12px; color: var(--muted); }
+    .co2-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; }
+    .co2-val.green { color: var(--accent); }
+    .co2-val.red   { color: var(--warn); }
+
+    .feature-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+    .feature-item { display: flex; flex-direction: column; gap: 4px; }
+    .feature-meta { display: flex; justify-content: space-between; font-size: 11px; }
+    .feature-name { color: var(--text); }
+    .feature-pct  { color: var(--accent); }
+    .feature-bar-bg { height: 4px; background: var(--border); border-radius: 2px; }
+    .feature-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent2), var(--accent)); transition: width 0.6s ease; }
+
+    .placeholder-state { text-align: center; padding: 32px 20px; color: var(--muted); }
+    .placeholder-icon  { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+    .placeholder-state p { font-size: 12px; line-height: 1.6; }
+
+    @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+    .animate-in { animation: fadeUp 0.4s ease forwards; }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(0,0,0,0.3); border-top-color: #000; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="glow-orb"></div>
+  <div class="glow-orb2"></div>
+
+  <div class="container">
+    <header>
+      <div class="header-inner">
+        <div class="logo">
+          <div class="logo-icon">⚡</div>
+          <div class="logo-text">Fuel<span>IQ</span></div>
+        </div>
+        <div class="api-status">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">CHECKING API...</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="hero">
+      <h1>Predict <span class="highlight">Fuel Efficiency</span><br/>with Real ML</h1>
+      <p>Powered by a <strong style="color:var(--accent)">Flask REST API</strong> + trained <strong style="color:var(--accent)">Gradient Boosting Regressor</strong>. Enter your vehicle specs for a real ML prediction.</p>
+    </div>
+
+    <div class="api-banner" id="apiBanner">
+      <strong>⚠️ Flask API is Offline</strong>
+      Open terminal in VS Code and run: <code>pip3 install flask flask-cors scikit-learn pandas numpy</code><br/>
+      Then run: <code>python3 app.py</code> — then refresh this page. API runs at <code>http://localhost:8080</code>
+    </div>
+
+    <div class="main-grid">
+      <div class="form-panel">
+        <div class="panel-title">Vehicle Parameters</div>
+        <div class="form-grid">
+
+          <div class="form-group">
+            <label>Cylinders</label>
+            <select id="cylinders">
+              <option value="3">3 Cylinders</option>
+              <option value="4" selected>4 Cylinders</option>
+              <option value="5">5 Cylinders</option>
+              <option value="6">6 Cylinders</option>
+              <option value="8">8 Cylinders</option>
+              <option value="12">12 Cylinders</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Fuel Type</label>
+            <select id="fuelType">
+              <option value="gasoline">Gasoline</option>
+              <option value="diesel">Diesel</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="electric">Electric</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Transmission</label>
+            <select id="transmission">
+              <option value="auto">Automatic</option>
+              <option value="manual">Manual</option>
+              <option value="cvt">CVT</option>
+              <option value="dct">Dual Clutch</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Drive Type</label>
+            <select id="driveType">
+              <option value="fwd">FWD</option>
+              <option value="rwd">RWD</option>
+              <option value="awd">AWD</option>
+              <option value="4wd">4WD</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Vehicle Class</label>
+            <select id="vehicleClass">
+              <option value="compact">Compact</option>
+              <option value="midsize" selected>Midsize</option>
+              <option value="fullsize">Full-size</option>
+              <option value="suv">SUV</option>
+              <option value="truck">Truck</option>
+              <option value="van">Van/Minivan</option>
+              <option value="sports">Sports Car</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Model Year</label>
+            <select id="modelYear">
+              <option value="2015">2015</option><option value="2016">2016</option>
+              <option value="2017">2017</option><option value="2018">2018</option>
+              <option value="2019">2019</option><option value="2020">2020</option>
+              <option value="2021">2021</option><option value="2022">2022</option>
+              <option value="2023">2023</option><option value="2024" selected>2024</option>
+            </select>
+          </div>
+
+          <div class="form-group full">
+            <label>Engine Displacement (L): <span id="dispLabel" style="color:var(--accent)">2.0</span></label>
+            <input type="range" id="displacement" min="1.0" max="8.0" step="0.1" value="2.0"
+              oninput="document.getElementById('dispLabel').textContent=parseFloat(this.value).toFixed(1)"/>
+          </div>
+
+          <div class="form-group full">
+            <label>Horsepower (HP): <span id="hpLabel" style="color:var(--accent)">150</span></label>
+            <input type="range" id="horsepower" min="50" max="700" step="5" value="150"
+              oninput="document.getElementById('hpLabel').textContent=this.value"/>
+          </div>
+
+          <div class="form-group full">
+            <label>Curb Weight (lbs): <span id="weightLabel" style="color:var(--accent)">3200</span></label>
+            <input type="range" id="weight" min="1500" max="8000" step="50" value="3200"
+              oninput="document.getElementById('weightLabel').textContent=this.value"/>
+          </div>
+        </div>
+
+        <button class="predict-btn" onclick="predict()" id="predictBtn">
+          <span id="btnText">⚡ PREDICT EFFICIENCY</span>
+        </button>
+
+        <div id="errorMsg" class="error-msg"></div>
+
+        <div class="model-strip">
+          <div class="model-dot"></div>
+          <span id="modelStrip">Gradient Boosting Regressor · Flask API · localhost:8080</span>
+        </div>
+      </div>
+
+      <div class="result-panel">
+        <div class="result-card" id="mpgCard">
+          <div class="placeholder-state" id="placeholderState">
+            <div class="placeholder-icon">🚗</div>
+            <p>Run <code style="color:var(--accent)">python3 app.py</code> in terminal, then configure your vehicle and click <strong style="color:var(--accent)">Predict</strong>.</p>
+          </div>
+          <div id="mpgResult" style="display:none">
+            <div class="panel-title">Predicted MPG</div>
+            <div class="mpg-display">
+              <div class="mpg-label">COMBINED FUEL ECONOMY</div>
+              <div class="mpg-value" id="mpgVal">--</div>
+              <div class="mpg-unit">MILES PER GALLON</div>
+              <div id="ratingBadge"></div>
+            </div>
+            <div class="efficiency-bar-wrap">
+              <div class="bar-labels"><span>POOR (10)</span><span>EXCELLENT (50+)</span></div>
+              <div class="efficiency-bar"><div class="efficiency-fill" id="effFill"></div></div>
+            </div>
+            <div class="metrics-row" id="metricsRow"></div>
+          </div>
+        </div>
+
+        <div class="result-card" id="statsCard" style="display:none">
+          <div class="panel-title">City / Highway Breakdown</div>
+          <div class="stats-grid">
+            <div class="stat-item"><div class="stat-label">CITY MPG</div><div class="stat-val" id="cityMpg">--</div></div>
+            <div class="stat-item"><div class="stat-label">HIGHWAY MPG</div><div class="stat-val" id="hwyMpg">--</div></div>
+            <div class="stat-item"><div class="stat-label">ANNUAL FUEL COST</div><div class="stat-val" id="annualCost">--</div></div>
+            <div class="stat-item"><div class="stat-label">RANGE (FULL TANK)</div><div class="stat-val" id="range">--</div></div>
+          </div>
+        </div>
+
+        <div class="result-card" id="co2Card" style="display:none">
+          <div class="panel-title">Environmental Impact</div>
+          <div class="co2-row"><span class="co2-label">CO₂ Emissions (g/km)</span><span class="co2-val red" id="co2Val">--</span></div>
+          <div class="co2-row"><span class="co2-label">Annual CO₂ (tons)</span><span class="co2-val red" id="co2Annual">--</span></div>
+          <div class="co2-row"><span class="co2-label">Trees to Offset/Year</span><span class="co2-val green" id="treesVal">--</span></div>
+        </div>
+
+        <div class="result-card" id="featureCard" style="display:none">
+          <div class="panel-title">Model Feature Importance</div>
+          <div class="feature-list" id="featureList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:8080';
+
+    async function checkHealth() {
+      try {
+        const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          const data = await res.json();
+          setStatus('online', `API ONLINE · R²=${data.metrics.r2} · RMSE=${data.metrics.rmse} MPG`);
+          document.getElementById('apiBanner').classList.remove('show');
+          document.getElementById('modelStrip').textContent =
+            `GBR · R²=${data.metrics.r2} · RMSE=${data.metrics.rmse} MPG · ${data.metrics.train_samples.toLocaleString()} training samples`;
+        } else { goOffline(); }
+      } catch { goOffline(); }
+    }
+
+    function goOffline() {
+      setStatus('offline', 'API OFFLINE — run: python3 app.py');
+      document.getElementById('apiBanner').classList.add('show');
+    }
+
+    function setStatus(state, text) {
+      document.getElementById('statusDot').className = `status-dot ${state}`;
+      document.getElementById('statusText').textContent = text;
+    }
+
+    async function predict() {
+      const btn    = document.getElementById('predictBtn');
+      const btnTxt = document.getElementById('btnText');
+      const errEl  = document.getElementById('errorMsg');
+
+      btn.disabled = true;
+      btnTxt.innerHTML = '<span class="spinner"></span> CALLING FLASK API...';
+      errEl.classList.remove('show');
+
+      const payload = {
+        vehicle_class: document.getElementById('vehicleClass').value,
+        fuel_type:     document.getElementById('fuelType').value,
+        transmission:  document.getElementById('transmission').value,
+        drive_type:    document.getElementById('driveType').value,
+        model_year:    parseInt(document.getElementById('modelYear').value),
+        displacement:  parseFloat(document.getElementById('displacement').value),
+        cylinders:     parseInt(document.getElementById('cylinders').value),
+        horsepower:    parseInt(document.getElementById('horsepower').value),
+        curb_weight:   parseInt(document.getElementById('weight').value),
+      };
+
+      try {
+        const res = await fetch(`${API_URL}/predict`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(15000)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Server error');
+        }
+        renderResults(await res.json());
+      } catch (e) {
+        const msg = e.message.includes('fetch') || e.name === 'TimeoutError'
+          ? 'Cannot reach Flask API. Make sure <strong>python3 app.py</strong> is running in terminal!'
+          : e.message;
+        errEl.innerHTML = `❌ ${msg}`;
+        errEl.classList.add('show');
+        goOffline();
+      } finally {
+        btn.disabled = false;
+        btnTxt.innerHTML = '⚡ PREDICT AGAIN';
+      }
+    }
+
+    function renderResults(d) {
+      document.getElementById('placeholderState').style.display = 'none';
+      document.getElementById('mpgResult').style.display = 'block';
+      document.getElementById('mpgCard').classList.add('active');
+      document.getElementById('mpgVal').textContent = d.mpg_combined.toFixed(1);
+
+      const icons = { excellent: '⭐', good: '✅', average: '⚠️', poor: '🔴' };
+      document.getElementById('ratingBadge').innerHTML =
+        `<div class="rating-badge ${d.rating_class}" style="margin:12px auto 0;width:fit-content">${icons[d.rating_class]} ${d.rating}</div>`;
+
+      const pct = Math.min(((d.mpg_combined - 10) / 45) * 100, 100);
+      setTimeout(() => document.getElementById('effFill').style.width = pct + '%', 100);
+
+      const m = d.model_metrics;
+      document.getElementById('metricsRow').innerHTML = `
+        <div class="metric-chip"><div class="metric-chip-label">R² SCORE</div><div class="metric-chip-val">${m.r2}</div></div>
+        <div class="metric-chip"><div class="metric-chip-label">RMSE</div><div class="metric-chip-val">${m.rmse}</div></div>
+        <div class="metric-chip"><div class="metric-chip-label">MAE</div><div class="metric-chip-val">${m.mae}</div></div>
+        <div class="metric-chip"><div class="metric-chip-label">CV R²</div><div class="metric-chip-val">${m.cv_mean}</div></div>
+      `;
+
+      const sc = document.getElementById('statsCard');
+      sc.style.display = 'block'; sc.classList.add('animate-in');
+      document.getElementById('cityMpg').innerHTML    = `${d.city_mpg} <small>mpg</small>`;
+      document.getElementById('hwyMpg').innerHTML     = `${d.highway_mpg} <small>mpg</small>`;
+      document.getElementById('annualCost').innerHTML = `$${d.annual_fuel_cost.toLocaleString()} <small>/yr</small>`;
+      document.getElementById('range').innerHTML      = `${d.range_miles} <small>mi</small>`;
+
+      const cc = document.getElementById('co2Card');
+      cc.style.display = 'block'; cc.classList.add('animate-in');
+      const electric = d.co2_gkm === 0;
+      document.getElementById('co2Val').textContent    = electric ? '0 (zero emission)' : `${d.co2_gkm} g/km`;
+      document.getElementById('co2Val').className      = `co2-val ${electric ? 'green' : 'red'}`;
+      document.getElementById('co2Annual').textContent = electric ? '0.00 tons' : `${d.co2_annual_tons} tons`;
+      document.getElementById('treesVal').textContent  = electric ? '0 trees' : `${d.trees_to_offset} trees/yr`;
+
+      const fc = document.getElementById('featureCard');
+      fc.style.display = 'block'; fc.classList.add('animate-in');
+      const top = d.feature_importances.slice(0, 5);
+      const maxImp = top[0].importance;
+      document.getElementById('featureList').innerHTML = top.map(f => {
+        const p = Math.round((f.importance / maxImp) * 100);
+        const label = f.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        return `<div class="feature-item">
+          <div class="feature-meta"><span class="feature-name">${label}</span><span class="feature-pct">${(f.importance*100).toFixed(1)}%</span></div>
+          <div class="feature-bar-bg"><div class="feature-bar-fill" style="width:0%" data-w="${p}%"></div></div>
+        </div>`;
+      }).join('');
+      setTimeout(() => {
+        document.querySelectorAll('.feature-bar-fill').forEach(el => el.style.width = el.dataset.w);
+      }, 100);
+    }
+
+    checkHealth();
+  </script>
+</body>
+</html>
